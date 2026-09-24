@@ -1,6 +1,6 @@
-# Gold H1 Trend-Runner Bot (MetaTrader 5 & FTMO Ready)
+# Gold H1 Trend-Runner Bot (MetaTrader 5 Local & FTMO Ready)
 
-Automated institutional-grade trend-following algorithm for Gold (`XAUUSD`) designed for MetaTrader 5 and prop firm challenges (FTMO, MFF, FundedNext).
+Automated institutional-grade trend-following algorithm for Gold (`XAUUSD`) designed for **100% local execution on your laptop** with MetaTrader 5 (Zero cloud services, zero external dependencies).
 
 ---
 
@@ -22,80 +22,43 @@ Simulated across 1 full year of real tick/candle Gold data under strict FTMO rul
 
 1. **H1 Donchian 20-Bar Channel Breakout**: Enters long on 20-hour highs, enters short on 20-hour lows.
 2. **Dynamic ATR Trailing Stop (2.5x ATR)**: No fixed profit cap. The bot trails the stop behind Gold's multi-day runs, capturing +500 to +1,500 pip trending moves.
-3. **Wednesday Filter (`InpSkipWednesday = true`)**: Automatically skips Wednesday entries to avoid US FOMC rate decisions and midweek liquidity consolidation traps (Wednesdays suffered a 28% win rate).
+3. **Wednesday Filter (`InpSkipWednesday = true`)**: Automatically skips Wednesday entries to avoid US FOMC rate decisions and midweek liquidity consolidation traps.
 4. **Strong Close Filter (`InpStrongCloseOnly = true`)**: Only enters when the breakout bar closes in the outer 35% of its candle range, eliminating false breakout wicks.
 5. **Channel Exit (10-Bar Low/High)**: Closes positions cleanly when momentum reverses.
 
 ---
 
-## 📱 How to Run the Bot 24/7 & Control from Your Phone (Termux)
+## 💻 100% Local Laptop Execution (Zero Cloud)
 
-> **Important Technical Note**: The MetaTrader 5 Python library (`import MetaTrader5`) communicates via Windows IPC with `terminal64.exe` and **requires a Windows environment**. Android OS (Termux) cannot run the Windows MT5 desktop engine directly without extreme battery drain and background process termination by Android.
+### Method 1: The Native MT5 Expert Advisor (Directly in MT5 - Recommended)
+The EA is **already compiled and installed** in your MT5 terminal:
 
-Here are the **two reliable methods** to keep the bot running 24/7 without keeping your PC on:
-
-### Method 1: The Native MT5 Virtual Hosting (Easiest - 100% Phone Controlled)
-1. Open MetaTrader 5 on your PC once to set it up.
-2. In the MT5 Navigator pane, right-click your FTMO account and click **"Register Virtual Server"**.
-3. Select an MT5 server located close to your broker (London/Frankfurt has 1ms ping).
-4. Compile [Gold_TrendRunner_EA.mq5](file:///c:/Users/alidi/OneDrive/Desktop/tradingBotsV2/Gold_TrendRunner_EA.mq5) in MetaEditor (`F7`), attach it to the **XAUUSD H1** chart, and ensure `InpFTMOMode = true`.
-5. Right-click the virtual server and click **"Migrate All (Charts, EAs)"**.
-6. **You can now shut down your PC entirely!**
-7. On your phone, install the **MetaTrader 5 App** (from Google Play / App Store).
-8. Log into your FTMO account on your phone: you can monitor all open trades, view trailing stops in real-time, and manage everything directly from your pocket.
-
----
-
-### Method 2: Cheap VPS + Termux Remote Management via SSH
-
-If you want to control the Python bot ([bot_trendrunner_mt5.py](file:///c:/Users/alidi/OneDrive/Desktop/tradingBotsV2/bot_trendrunner_mt5.py)) or EA from Termux on your phone:
-
-#### Step 1: Get a cheap Windows VPS ($3 - $5/mo)
-* Use Contabo, Kamatera, OVH, or a free Windows cloud instance.
-* Install MetaTrader 5 and Python 3.11 on the VPS.
-
-#### Step 2: Clone this repository on the VPS
-```bash
-git clone https://github.com/alidisco/tradingBot.git
-cd tradingBot
-pip install -r requirements.txt
-python bot_trendrunner_mt5.py
-```
-
-#### Step 3: Install OpenSSH on Termux (Android Phone)
-Open Termux on your phone and run:
-```bash
-pkg update && pkg install openssh git python
-```
-
-#### Step 4: Connect to your Bot anytime from Termux
-```bash
-ssh user@your-vps-ip
-```
-You can now start, stop, check logs (`tail -f bot_trendrunner.log`), pull git updates, and monitor your trading bot directly from your phone terminal anytime, anywhere.
+1. Open **MetaTrader 5** on your laptop.
+2. Open the **XAUUSD** (Gold) chart and set the timeframe to **H1** (1-Hour).
+3. In the Navigator pane on the left (`Ctrl + N`), expand **Expert Advisors**.
+4. Drag **`Gold_TrendRunner_EA`** onto your chart.
+5. In the settings window:
+   * In the **Common** tab, ensure **"Allow Algo Trading"** is checked.
+   * In the **Inputs** tab, verify **`InpFTMOMode = true`** and **`InpFTMORiskPercent = 1.00`**.
+   * Click **OK**.
+6. Ensure the **"Algo Trading"** button in the top MT5 toolbar is **GREEN**.
+   * A small icon in the top right corner of the chart confirms the bot is running!
 
 ---
 
-## 🚀 Quick Launch Locally (Windows)
-
-### Option A: Run the Python Bot
+### Method 2: The Local Python Bot
+If you prefer running via command prompt / terminal:
 ```powershell
 pip install -r requirements.txt
 python bot_trendrunner_mt5.py
 ```
-
-### Option B: Run in MetaTrader 5 (MQL5 EA)
-1. In MT5, press `F4` to open **MetaEditor**.
-2. Open `Gold_TrendRunner_EA.mq5` and press `F7` to **Compile**.
-3. In MT5, open the **XAUUSD** chart, set timeframe to **H1**.
-4. Drag **Gold_TrendRunner_EA** onto the chart.
-5. Ensure **Algo Trading** is enabled in the top toolbar.
+*It connects directly to your local MT5 application via Windows IPC, monitors H1 candles, and executes trades with 1% FTMO risk automatically.*
 
 ---
 
-## 🔒 FTMO Account Checklist
-- [x] Account Type: **FTMO Swing** (allows holding trades over weekends)
-- [x] Symbol: **XAUUSD** (Gold / USD)
-- [x] Timeframe: **H1** (1-Hour)
-- [x] Risk Mode: **`InpFTMOMode = true`**
-- [x] Risk Percent: **`InpFTMORiskPercent = 1.00`**
+## 🔋 Laptop Power Setting (Keep It Running Smoothly)
+To prevent your laptop from going to sleep while trading:
+1. Press `Win + I` to open **Settings**.
+2. Go to **System > Power & battery > Screen and sleep**.
+3. Set *"When plugged in, put my device to sleep after"* to **Never**.
+*(You can close the lid or let the screen turn off by setting "When I close the lid" to "Do nothing" in Control Panel Power Options).*
