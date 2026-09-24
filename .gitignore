@@ -1,0 +1,16 @@
+# Logs
+*.log
+
+# Python cache
+__pycache__/
+*.pyc
+
+# MetaTrader compiled files
+*.ex5
+
+# Trading books / large PDFs (kept locally, ignored from git)
+*.pdf
+
+# System files
+.DS_Store
+Thumbs.db
