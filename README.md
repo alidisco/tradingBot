@@ -46,13 +46,12 @@ The EA is **already compiled and installed** in your MT5 terminal:
 
 ---
 
-### Method 2: The Local Python Bot
-If you prefer running via command prompt / terminal:
+### Method 2: Run in Antigravity IDE Terminal (Python)
+Ensure MetaTrader 5 is open on your laptop, then in your IDE terminal run:
 ```powershell
-pip install -r requirements.txt
-python bot_trendrunner_mt5.py
+python main.py
 ```
-*It connects directly to your local MT5 application via Windows IPC, monitors H1 candles, and executes trades with 1% FTMO risk automatically.*
+*It connects directly to your local MT5 application via Windows IPC, displays a live terminal dashboard, monitors H1 candles, and executes trades with exact 1.00% FTMO risk automatically.*
 
 ---
 
