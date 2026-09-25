@@ -28,7 +28,7 @@ input group "=== Risk & Money Management ==="
 input bool     InpFTMOMode            = true;    // Enable FTMO Prop Firm Auto-Risk Mode
 input double   InpFTMORiskPercent     = 1.00;    // FTMO Risk % per Trade (The Sweet Spot: 1.00%)
 input double   InpFixedLot            = 0.01;    // Fixed Lot (if FTMO Mode is false)
-input int      InpMaxSpreadPoints     = 60;      // Maximum Allowable Spread (Points)
+input int      InpMaxSpreadPoints     = 75;      // Maximum Allowable Spread (Points, e.g. 75 = $0.75)
 input ulong    InpMagicNumber         = 889900;  // Magic Number
 
 //--- Global Variables
@@ -69,6 +69,7 @@ int OnInit()
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
+   Comment(""); // Clear chart HUD
    IndicatorRelease(handle_ema_fast);
    IndicatorRelease(handle_ema_slow);
    IndicatorRelease(handle_atr);
@@ -79,22 +80,7 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
-   // Check bar open on H1
-   datetime current_bar_time = iTime(_Symbol, PERIOD_H1, 0);
-   if(current_bar_time == last_bar_time)
-      return; // Run on new candle
-
-   last_bar_time = current_bar_time;
-
-   // Check spread
-   long spread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
-   if(spread > InpMaxSpreadPoints)
-   {
-      Print("Spread too high: ", spread, " points. Skipping tick.");
-      return;
-   }
-
-   // Indicator buffers
+   // 1. Indicator buffers
    double ema_fast[2], ema_slow[2], atr[2];
    if(CopyBuffer(handle_ema_fast, 0, 1, 2, ema_fast) <= 0) return;
    if(CopyBuffer(handle_ema_slow, 0, 1, 2, ema_slow) <= 0) return;
@@ -104,7 +90,7 @@ void OnTick()
    double fast_ma = ema_fast[1];
    double slow_ma = ema_slow[1];
 
-   // Copy rates for Donchian channels
+   // 2. Copy rates for Donchian channels
    MqlRates rates[];
    ArraySetAsSeries(rates, true);
    int needed_bars = InpEntryPeriod + 5;
@@ -130,7 +116,56 @@ void OnTick()
       if(rates[j].high > exit_high) exit_high = rates[j].high;
    }
 
-   // 1. Manage Active Positions
+   // Check spread
+   long spread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   datetime current_bar_time = iTime(_Symbol, PERIOD_H1, 0);
+
+   // Count open positions
+   int open_pos_count = 0;
+   double open_pnl = 0.0;
+   for(int p = PositionsTotal() - 1; p >= 0; p--)
+   {
+      if(PositionGetSymbol(p) == _Symbol && PositionGetInteger(POSITION_MAGIC) == InpMagicNumber)
+      {
+         open_pos_count++;
+         open_pnl += PositionGetDouble(POSITION_PROFIT);
+      }
+   }
+
+   // 3. Update Real-Time On-Chart HUD Comment
+   string trend_str = (fast_ma > slow_ma) ? "BULLISH (EMA 50 > 200)" : "BEARISH (EMA 50 < 200)";
+   string spread_status = (spread <= InpMaxSpreadPoints) ? "[OK]" : "[SPREAD HIGH - PAUSED]";
+   string status_str = "HOLDING CASH (Waiting for H1 Breakout)";
+   MqlDateTime dt_hud;
+   TimeToStruct(current_bar_time, dt_hud);
+   if(open_pos_count > 0)
+      status_str = "IN TRADE (" + IntegerToString(open_pos_count) + " pos | PnL: $" + DoubleToString(open_pnl, 2) + ")";
+   else if(dt_hud.day_of_week == 3)
+      status_str = "SKIP WEDNESDAY FILTER (Avoiding FOMC / Midweek Chop)";
+
+   int minutes_left = (int)((current_bar_time + 3600 - TimeCurrent()) / 60);
+   if(minutes_left < 0) minutes_left = 0;
+
+   string hud = "=======================================================\n" +
+                "       🏆 GOLD H1 TREND-RUNNER EA (FTMO READY)\n" +
+                "=======================================================\n" +
+                " Account: " + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN)) +
+                " | Balance: $" + DoubleToString(AccountInfoDouble(ACCOUNT_BALANCE), 2) +
+                " | Equity: $" + DoubleToString(AccountInfoDouble(ACCOUNT_EQUITY), 2) + "\n" +
+                " Symbol: " + _Symbol + " | Bid: " + DoubleToString(bid, _Digits) + " | Ask: " + DoubleToString(ask, _Digits) + "\n" +
+                " Spread: " + IntegerToString(spread) + " pts (Max Allowed: " + IntegerToString(InpMaxSpreadPoints) + " pts) " + spread_status + "\n" +
+                " H1 Trend: " + trend_str + " | ATR(14): " + DoubleToString(cur_atr, _Digits) + "\n" +
+                "-------------------------------------------------------\n" +
+                " 🟢 BUY TRIGGER:  Close > " + DoubleToString(donchian_high, _Digits) + " (Need +$" + DoubleToString(MathMax(0.0, donchian_high - ask), 2) + " move)\n" +
+                " 🔴 SELL TRIGGER: Close < " + DoubleToString(donchian_low, _Digits) + " (Need -$" + DoubleToString(MathMax(0.0, bid - donchian_low), 2) + " move)\n" +
+                " Next H1 Candle Closes In: ~" + IntegerToString(minutes_left) + " minutes\n" +
+                " Strategy Status: " + status_str + "\n" +
+                "=======================================================";
+   Comment(hud);
+
+   // 4. Manage Active Positions (Trailing Stop / Exit Channels)
    for(int p = PositionsTotal() - 1; p >= 0; p--)
    {
       if(PositionGetSymbol(p) == _Symbol && PositionGetInteger(POSITION_MAGIC) == InpMagicNumber)
@@ -141,8 +176,8 @@ void OnTick()
 
          if(pos_type == POSITION_TYPE_BUY)
          {
-            // Exit on 10-bar channel low breakdown
-            if(c1 <= exit_low)
+            // Exit on 10-bar channel low breakdown on completed candle
+            if(c1 <= exit_low && current_bar_time != last_bar_time)
             {
                trade.PositionClose(ticket);
                Print("BUY Position closed on channel exit low at ", c1);
@@ -159,8 +194,8 @@ void OnTick()
          }
          else if(pos_type == POSITION_TYPE_SELL)
          {
-            // Exit on 10-bar channel high breakout
-            if(c1 >= exit_high)
+            // Exit on 10-bar channel high breakout on completed candle
+            if(c1 >= exit_high && current_bar_time != last_bar_time)
             {
                trade.PositionClose(ticket);
                Print("SELL Position closed on channel exit high at ", c1);
@@ -179,7 +214,20 @@ void OnTick()
       }
    }
 
-   // 2. Look for New Breakout Entry
+   // 5. Look for New Breakout Entry (only on new H1 bar)
+   if(current_bar_time == last_bar_time)
+      return; // Already checked this completed bar
+
+   // Check spread BEFORE locking bar time so temporary spikes don't discard the whole hour
+   if(spread > InpMaxSpreadPoints)
+   {
+      Print("Spread temporarily high: ", spread, " points (max ", InpMaxSpreadPoints, "). Waiting for next tick...");
+      return;
+   }
+
+   // Lock this bar now that spread is acceptable
+   last_bar_time = current_bar_time;
+
    // Check day of week
    MqlDateTime dt;
    TimeToStruct(current_bar_time, dt);

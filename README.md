@@ -28,6 +28,20 @@ Simulated across 1 full year of real tick/candle Gold data under strict FTMO rul
 
 ---
 
+## 🛠️ Pre-Flight Verification: Test MT5 Before Running
+
+Before launching the strategy, verify your local MT5 connection, account permissions, market feed, and broker order handshake:
+
+```powershell
+# 1. Full diagnostic & readiness check (Zero fill, tests connection, permissions, and margin)
+python test_mt5.py
+
+# 2. End-to-end live test order (Places a 0.01 lot test order and closes it immediately)
+python test_mt5.py --live-trade
+```
+
+---
+
 ## 💻 100% Local Laptop Execution (Zero Cloud)
 
 ### Method 1: The Native MT5 Expert Advisor (Directly in MT5 - Recommended)
